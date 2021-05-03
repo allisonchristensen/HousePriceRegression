@@ -1,0 +1,395 @@
+---
+title: "R Notebook"
+output:
+  html_notebook: default
+---
+Name: Allison Christensen (10211533)
+
+## PART 1:
+
+# RQ1.1 Select Boroughs
+
+The following two boroughs were selected for this analysis:
+
+  1. Manhattan
+  2. Staten Island
+  
+These were selected as the contrasting landscape and population density between these areas may offer some interesting insight into the impact of Covid-19 on the real estate market in NYC.
+
+
+# RQ1.2 Hypothesis (related to impact of Covid-19)
+
+My hypothesis is as follows: The difference in the mean house price from 2019 to 2020 in Manhattan will be more significant than that in Staten Island. 
+
+I also suspect that the average house price in both areas will be lower in 2020 than in the previous year.
+
+The Null Hypothesis would then be that the difference in annual means will be equivalent in terms of significance.
+
+
+```{r}
+# import data
+manhattan2018 = read.csv(file = "2018_manhattan.csv", header = TRUE)
+manhattan2019 = read.csv(file = "2019_manhattan.csv", header = TRUE)
+manhattan2020 = read.csv(file = "2020_manhattan.csv", header = TRUE)
+
+statenisland2018 = read.csv(file = "2018_statenisland.csv", header = TRUE)
+statenisland2019 = read.csv(file = "2019_statenisland.csv", header = TRUE)
+statenisland2020 = read.csv(file = "2020_statenisland.csv", header = TRUE)
+
+#rename dissimilar columns
+library(dplyr)
+manhattan2020 <- manhattan2020 %>% rename_with( ~ paste(.x,"", sep = "."))
+statenisland2020 <- statenisland2020 %>% rename_with( ~ paste(.x, "", sep = "."))
+
+manhattan2018<-manhattan2018 %>% rename( BUILDING.CLASS. = BUILDING.CLASS.AS.OF.FINAL.ROLL.18.19, TAX.CLASS. = TAX.CLASS.AS.OF.FINAL.ROLL.18.19)
+manhattan2019<-manhattan2019 %>% rename( BUILDING.CLASS. = BUILDING.CLASS.AS.OF.FINAL.ROLL.18.19, TAX.CLASS. = TAX.CLASS.AS.OF.FINAL.ROLL.18.19)
+manhattan2020<-manhattan2020 %>% rename( BUILDING.CLASS. = BUILDING.CLASS.AT.PRESENT., TAX.CLASS. = TAX.CLASS.AT.PRESENT.)
+
+statenisland2018<-statenisland2018 %>% rename( BUILDING.CLASS. = BUILDING.CLASS.AS.OF.FINAL.ROLL.18.19, TAX.CLASS. = TAX.CLASS.AS.OF.FINAL.ROLL.18.19)
+statenisland2019<-statenisland2019 %>% rename( BUILDING.CLASS. = BUILDING.CLASS.AS.OF.FINAL.ROLL.18.19, TAX.CLASS. = TAX.CLASS.AS.OF.FINAL.ROLL.18.19)
+statenisland2020<-statenisland2020 %>% rename( BUILDING.CLASS. = BUILDING.CLASS.AT.PRESENT., TAX.CLASS. = TAX.CLASS.AT.PRESENT.)
+
+head(manhattan2020)
+
+```
+
+DATA INSPECTION AND PROCESSING:
+```{r}
+#change the sale price column to numeric
+manhattan2018$SALE.PRICE. <- as.numeric(gsub('[$,]', '', manhattan2018$SALE.PRICE.)) 
+manhattan2019$SALE.PRICE. <- as.numeric(gsub('[$,]', '', manhattan2019$SALE.PRICE.)) 
+manhattan2020$SALE.PRICE. <- as.numeric(gsub('[,]', '',  manhattan2020$SALE.PRICE.)) 
+
+statenisland2018$SALE.PRICE. <- as.numeric(gsub('[$,]', '', statenisland2018$SALE.PRICE.)) 
+statenisland2019$SALE.PRICE. <- as.numeric(gsub('[$,]', '', statenisland2019$SALE.PRICE.)) 
+statenisland2020$SALE.PRICE. <- as.numeric(gsub('[,]', '',  statenisland2020$SALE.PRICE.))
+
+
+# identify and remove saleprice outliers from individual datasets using boxplot() function
+invisible(boxplot(manhattan2018$SALE.PRICE., plot=FALSE)$out)
+outliers <- boxplot(manhattan2018$SALE.PRICE., plot=FALSE)$out
+manhattan2018 <- manhattan2018[-which(manhattan2018$SALE.PRICE. %in% outliers),]
+invisible(boxplot(manhattan2019$SALE.PRICE., plot=FALSE)$out)
+outliers <- boxplot(manhattan2019$SALE.PRICE., plot=FALSE)$out
+manhattan2019 <- manhattan2019[-which(manhattan2019$SALE.PRICE. %in% outliers),]
+invisible(boxplot(manhattan2020$SALE.PRICE., plot=FALSE)$out)
+outliers <- boxplot(manhattan2020$SALE.PRICE., plot=FALSE)$out
+manhattan2020 <- manhattan2020[-which(manhattan2020$SALE.PRICE. %in% outliers),]
+
+invisible(boxplot(statenisland2018$SALE.PRICE., plot=FALSE)$out)
+outliers <- boxplot(statenisland2018$SALE.PRICE., plot=FALSE)$out
+statenisland2018 <- statenisland2018[-which(statenisland2018$SALE.PRICE. %in% outliers),]
+invisible(boxplot(statenisland2019$SALE.PRICE., plot=FALSE)$out)
+outliers <- boxplot(statenisland2019$SALE.PRICE., plot=FALSE)$out
+statenisland2019 <- statenisland2019[-which(statenisland2019$SALE.PRICE. %in% outliers),]
+invisible(boxplot(statenisland2020$SALE.PRICE., plot=FALSE)$out)
+outliers <- boxplot(statenisland2020$SALE.PRICE., plot=FALSE)$out
+statenisland2020 <- statenisland2020[-which(statenisland2020$SALE.PRICE. %in% outliers),]
+
+
+# combine into single dataset for each bourough
+temp = rbind(manhattan2018, manhattan2019)
+manhattan_data = rbind(temp, manhattan2020)
+
+temp = rbind(statenisland2018, statenisland2019)
+statenisland_data = rbind(temp, statenisland2020)
+
+# drop EASE-MENT column as it is empty
+manhattan_data <- subset(manhattan_data, select = -EASE.MENT.)
+statenisland_data <- subset(statenisland_data, select = -EASE.MENT.)
+
+
+# remove duplicated rows
+manhattan_data <- unique(manhattan_data)
+statenisland_data <- unique(statenisland_data)
+
+# replace zeros in sale price column with NA
+manhattan_data$SALE.PRICE.[manhattan_data$SALE.PRICE. == 0] <- NA  
+statenisland_data$SALE.PRICE.[statenisland_data$SALE.PRICE. == 0] <- NA  
+
+# only keep rows with sale price info available
+manhattan_data <-subset(manhattan_data, !is.na(SALE.PRICE.))
+statenisland_data <-subset(statenisland_data, !is.na(SALE.PRICE.))
+
+# change sale date column datatype
+manhattan_data$SALE.DATE. <-  as.Date(manhattan_data$SALE.DATE.,'%Y-%m-%d')
+statenisland_data$SALE.DATE. <-  as.Date(statenisland_data$SALE.DATE.,'%Y-%m-%d')
+
+# make column just for year
+manhattan_data$YEAR. <- as.numeric(format(manhattan_data$SALE.DATE.,'%Y'))
+statenisland_data$YEAR. <- as.numeric(format(statenisland_data$SALE.DATE.,'%Y'))
+
+#rename borough column
+statenisland_data<-statenisland_data %>% rename(BOROUGH. = ï..BOROUGH.)
+manhattan_data<-manhattan_data %>% rename(BOROUGH. = ï..BOROUGH.)
+
+# create boxplot that displays sale price distribution for each year in the dataset
+library(ggplot2)
+
+# draw boxplot of response variable
+ggplot(data = manhattan_data, aes(x=as.character(YEAR.), y=SALE.PRICE.)) +
+    geom_boxplot(fill="steelblue") +
+    labs(title="Manhattan Sale Price Distribution by Year", x="Year", y="Sale Price ($)")
+
+ggplot(data = statenisland_data, aes(x=as.character(YEAR.), y=SALE.PRICE.)) +
+    geom_boxplot(fill="steelblue") +
+    labs(title="Staten Island Sale Price Distribution by Year", x="Year", y="Sale Price ($)")
+```
+
+Note: In the above box plot, the median Sale Price in Staten Island appears to increase in 2020; this contradicts how I had initially expected the system to behave.
+
+Originally, the raw data  was highly skewed (in Manhattan especially) and I had observed some outliers in the box plots. As my hypothesis is based on the mean sale price values, which can be very sensitive to outliers, I choose to remove these erroneous data points from the set.
+
+```{r}
+# check skewness
+library(e1071)
+skewness(subset(manhattan_data, YEAR. == 2018)$SALE.PRICE., na.rm = TRUE)
+skewness(subset(manhattan_data, YEAR. == 2019)$SALE.PRICE., na.rm = TRUE)
+skewness(subset(manhattan_data, YEAR. == 2020)$SALE.PRICE., na.rm = TRUE)
+
+skewness(subset(statenisland_data, YEAR. == 2018)$SALE.PRICE., na.rm = TRUE)
+skewness(subset(statenisland_data, YEAR. == 2019)$SALE.PRICE., na.rm = TRUE)
+skewness(subset(statenisland_data, YEAR. == 2020)$SALE.PRICE., na.rm = TRUE)
+
+# correct skewness
+manhattan_data$sqrtSalePrice = sqrt(manhattan_data$SALE.PRICE.)
+statenisland_data$sqrtSalePrice = sqrt(statenisland_data$SALE.PRICE.)
+
+skewness(subset(manhattan_data, YEAR. == 2018)$sqrtSalePrice, na.rm = TRUE)
+skewness(subset(manhattan_data, YEAR. == 2019)$sqrtSalePrice, na.rm = TRUE)
+skewness(subset(manhattan_data, YEAR. == 2020)$sqrtSalePrice, na.rm = TRUE)
+
+#skewness(subset(statenisland_data, YEAR. == 2018)$sqrtSalePrice, na.rm = TRUE)
+#skewness(subset(statenisland_data, YEAR. == 2019)$sqrtSalePrice, na.rm = TRUE)
+#skewness(subset(statenisland_data, YEAR. == 2020)$sqrtSalePrice, na.rm = TRUE)
+
+# histogram
+ggplot(data = subset(manhattan_data, YEAR. == 2020), aes(x = SALE.PRICE.))+
+   geom_histogram()
+ggplot(data = subset(manhattan_data, YEAR. == 2020), aes(x = sqrtSalePrice))+
+   geom_histogram()
+```
+
+Before statistical testing, I checked the skewness of the data as many of the statistical tests discussed in lecture assume that the response variable has a normal distribution. In general, good skewness values lie between -0.5 and +0.5. The Manhattan sale prices were moderately positively skewed; this skewness can be corrected by taking the square root of the sale. 
+
+# RQ1.3 Statistical Test Design
+
+To test my hypothesis I implemented a t-test. I selected this test because it allows us to compare the average values of two datasets (2019 data vs. 2020 data) and determine if there is a significant different between the means of these two groups. 
+
+I treat the year data samples as independent and perform separate t-tests for each borough. Variances are assumed to be equal; this is based on the observed variance represented in the box plots (See above). 
+
+```{r}
+#independent sample t-test where y1 and y2 are numeric and normalized
+set.seed(0)
+
+x1 <- subset(manhattan_data, YEAR. == 2019)$sqrtSalePrice
+x2 <- subset(manhattan_data, YEAR. == 2020)$sqrtSalePrice
+t.test(x1, x2, var.equal = TRUE)
+
+x1 <- subset(statenisland_data, YEAR. == 2019)$SALE.PRICE.
+x2 <- subset(statenisland_data, YEAR. == 2020)$SALE.PRICE.
+t.test(x1, x2, var.equal = TRUE)
+
+x1 <- subset(manhattan_data, YEAR. == 2019)$SALE.PRICE.
+x2 <- subset(manhattan_data, YEAR. == 2020)$SALE.PRICE.
+t.test(x1, x2, var.equal = TRUE)
+
+```
+
+# RQ1.4 Summary of Findings:
+
+Based on the p-values we should accept the null hypothesis that the two means are equal for the Manhattan data because the p-value is larger than 0.05. 
+For the Staten Island data we should accept the alternative hypothesis, based on its p-value. 
+
+This test disproves my original hypothesis. Though I initially thought the housing prices would drop significantly in 2020, especially in Manhattan given the events of the pandemic that consumed the past year, the data demonstrates otherwise. Manhattan's mean sale prices did decrease slightly, though this is not shown to be a significant drop. Staten Island, however, saw a significant increase in their sale prices in 2020. 
+
+While a number of factors may contribute to this increase in Staten Island in 2020, it may be possible that locations that offer more space and separation from more densely populated areas could be becoming more valuable than they previously had been due to covid-19. Though, from the data exploration, the more metropolitan Manhattan borough maintains a higher average sale price than Staten Island regardless or whether there is a pandemic or not.
+
+
+## PART 2: 
+
+# RQ2.1 Select Training and Testing Data
+
+Training and testing sets are taken from housing data that combines the two previously explored boroughs. The testing set represents 10% of the house price data. The remaining 90% is used for training.
+
+```{r}
+# combine 2020 data from both boroughs
+m<-subset(manhattan_data, YEAR. == 2020)
+s<-subset(statenisland_data, YEAR. == 2020)
+
+house_data = rbind(m, s)
+
+# convert data types to numeric
+this=unique(c(as.character(house_data$NEIGHBORHOOD.)))
+house_data$NEIGHBORHOOD.NUMERIC. <- as.numeric(factor(house_data$NEIGHBORHOOD., levels=this))
+
+that=unique(c(as.character(house_data$BUILDING.CLASS.AT.TIME.OF.SALE.)))
+house_data$BUILDING.CLASS.AT.TIME.OF.SALE. <- as.numeric(factor(house_data$BUILDING.CLASS.AT.TIME.OF.SALE., levels=that))
+
+house_data$LAND.SQUARE.FEET. <- as.numeric(gsub('[,]', '',  house_data$LAND.SQUARE.FEET.)) 
+house_data$GROSS.SQUARE.FEET. <- as.numeric(gsub('[$,]', '',  house_data$GROSS.SQUARE.FEET.)) 
+house_data$RESIDENTIAL.UNITS. <- as.numeric(gsub('[$,]', '',  house_data$RESIDENTIAL.UNITS.)) 
+house_data$TOTAL.UNITS. <- as.numeric(gsub('[$,]', '',  house_data$TOTAL.UNITS.)) 
+
+# sample function randomly picks 10% of house price data (for the 2 selected boroughs) in 2020 as the testing dataset. 
+temp_dt = sort(sample(nrow(house_data),nrow(house_data)*0.1))
+test<-house_data[temp_dt,]
+train<-house_data[-temp_dt,] # remaining data is used for training.
+
+# quick check of training and test sets
+head(train)
+head(test)
+```
+# RQ2.2 Feature Selection
+
+Certain features can be removed fairly easily: For example, we know year is consistent in this dataset so this variable can be ignored in our prediction.
+Building class and building class category represent the same information in different ways therefore it makes sense to only include one of these columns to avoid redundancy. Similarly, we only need to consider tax class at time of sale (not that and tax class-redundant)
+
+Apartment numbers are already included in the address information.Moreover, including address does not seem valuable because, aside from instances where the same building is sold multiple times a year, each building will have an address that is unique.
+
+For the remaining features, I generated the following plots to assess how these variables contribute to house prices:
+```{r}
+
+# scatter plots of house price by different explanatory variables
+library(ggpubr)
+ggscatter(train, x = "YEAR.BUILT.", y = ("SALE.PRICE."), 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = "Year Built", ylab = "House Price", na.rm=TRUE)
+
+ggscatter(train, x = "NEIGHBORHOOD.NUMERIC.", y = ("SALE.PRICE."), 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = FALSE, cor.method = "pearson",
+          xlab = "Neighborhood", ylab = "House Price", na.rm=TRUE) + rremove("x.text") +stat_cor(method = "pearson", label.x = 55, label.y = 4000000)
+
+ggscatter(train, x = "LAND.SQUARE.FEET.", y = ("SALE.PRICE."), 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = FALSE, cor.method = "pearson",
+          xlab = "LAND.SQUARE.FEET", ylab = "House Price", na.rm=TRUE) +stat_cor(method = "pearson", label.x = 2000000, label.y = 4000000)
+
+ggscatter(train, x = "GROSS.SQUARE.FEET.", y = ("SALE.PRICE."), 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = FALSE, cor.method = "pearson",
+          xlab = "GROSS.SQUARE.FEET", ylab = "House Price", na.rm=TRUE) +stat_cor(method = "pearson", label.x = 6500000, label.y = 4000000)
+
+ggscatter(train, x = "TAX.CLASS.AT.TIME.OF.SALE.", y = ("SALE.PRICE."), 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = FALSE, cor.method = "pearson",
+          xlab = "Tax Class", ylab = "House Price", na.rm=TRUE) +stat_cor(method = "pearson", label.x = 3, label.y = 4000000)
+
+ggscatter(train, x = "ZIP.CODE.", y = ("SALE.PRICE."), 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = FALSE, cor.method = "pearson",
+          xlab = "Zip Code", ylab = "House Price", na.rm=TRUE)+stat_cor(method = "pearson", label.x = 10300, label.y = 4000000)
+
+ggscatter(train, x = "BUILDING.CLASS.AT.TIME.OF.SALE.", y = ("SALE.PRICE."), 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = FALSE, cor.method = "pearson",
+          xlab = "Building Class", ylab = "House Price", na.rm=TRUE) +stat_cor(method = "pearson", label.x = 60, label.y = 4000000)
+
+ggscatter(train, x = "TOTAL.UNITS.", y = ("SALE.PRICE."), 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = FALSE, cor.method = "pearson",
+          xlab = "Total Units", ylab = "House Price", na.rm=TRUE) +stat_cor(method = "pearson", label.x = 2500, label.y = 4000000)
+
+ggscatter(train, x = "RESIDENTIAL.UNITS.", y = ("SALE.PRICE."), 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = FALSE, cor.method = "pearson",
+          xlab = "Residential Units", ylab = "House Price", na.rm=TRUE) +stat_cor(method = "pearson", label.x = 2500, label.y = 4000000)
+
+ggscatter(train, x = "COMMERCIAL.UNITS.", y = ("SALE.PRICE."), 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = FALSE, cor.method = "pearson",
+          xlab = "Commercial Units", ylab = "House Price", na.rm=TRUE) +stat_cor(method = "pearson", label.x = 30, label.y = 4000000)
+
+ggscatter(train, x = "LOT.", y = ("SALE.PRICE."), 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = FALSE, cor.method = "pearson",
+          xlab = "Lot", ylab = "House Price", na.rm=TRUE) +stat_cor(method = "pearson", label.x = 6000, label.y = 4000000)
+
+ggscatter(train, x = "BLOCK.", y = ("SALE.PRICE."), 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = FALSE, cor.method = "pearson",
+          xlab = "Block", ylab = "House Price", na.rm=TRUE) +stat_cor(method = "pearson", label.x = 6000, label.y = 4000000)
+
+ggscatter(train, x = "BOROUGH.", y = ("SALE.PRICE."), 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = FALSE, cor.method = "pearson",
+          xlab = "Borough", ylab = "House Price", na.rm=TRUE) +stat_cor(method = "pearson", label.x = 4, label.y = 4000000)
+```
+Looking at the Pearson Coefficient on the above scatter plots, we can compare how correlated a given variable is to the Sale Price.
+
+I have opted to only keep variables with at least a moderate correlation coefficient (+/-0.3). This leaves us with the following features:
+
+1.Borough
+2.Building Class
+3.Zip Code
+4.Tax Class
+5.Neighborhood
+
+
+RQ2.3 Detect if Multicollinearity Exists
+
+```{r}
+
+# pairwise correlation among selected explanatory variables
+
+x <- train %>% select(BOROUGH., BUILDING.CLASS.AT.TIME.OF.SALE., ZIP.CODE., TAX.CLASS.AT.TIME.OF.SALE., NEIGHBORHOOD.NUMERIC.)
+select_for_correlation <- sapply(x,function(i)(length(unique(i))>1))
+res <- cor(x[,select_for_correlation], use = "pairwise.complete.obs")
+res
+
+```
+
+
+
+```{r}
+
+library(corrplot)
+
+#multicollinearity across all numeric variables ()
+my_data <- dplyr::select(train, SALE.PRICE., LAND.SQUARE.FEET., GROSS.SQUARE.FEET., YEAR.BUILT., BOROUGH., BLOCK., TAX.CLASS.AT.TIME.OF.SALE., NEIGHBORHOOD.NUMERIC., ZIP.CODE., BUILDING.CLASS.AT.TIME.OF.SALE., RESIDENTIAL.UNITS., COMMERCIAL.UNITS., TOTAL.UNITS.)
+
+res2 <- cor(my_data, use = "complete.obs")
+corrplot(res2, tl.cex=0.5)
+
+#multicollinearity across selected features only
+library(corrplot)
+corrplot(res, tl.cex=0.5)
+
+```
+# RQ2.4 Summary of Features Used/Filtered in Above Steps
+
+There appears to be a moderately high collinearity among most of the variables. Borough and Zip Code have the highest collinearity. These variables appear to be logically redundant, therefore I will filter out Zip Code.
+
+
+## PART 3: Prediction using Regression Models
+
+RQ3.1 Build a Regression Model
+```{r}
+#Build Model
+model<- lm(SALE.PRICE. ~ BOROUGH. + TAX.CLASS.AT.TIME.OF.SALE. + BUILDING.CLASS.AT.TIME.OF.SALE. + NEIGHBORHOOD.NUMERIC. , data=train)
+summary(model4)
+```
+
+
+Performance Analysis: (using RMSE metric)
+```{r}
+#Apply model to test data
+model_test<- lm(SALE.PRICE. ~ BOROUGH. + TAX.CLASS.AT.TIME.OF.SALE. + BUILDING.CLASS.AT.TIME.OF.SALE. + NEIGHBORHOOD.NUMERIC. , data=test)
+summary(model4_test)
+
+# Function for Root Mean Squared Error
+RMSE <- function(error) { sqrt(mean(error^2)) }
+
+#Get RMSE for model on training and testing data
+RMSE(model4$residuals)
+RMSE(model4_test$residuals)
+```
+The overall performance of the predictor is substandard on both the training and the test data. Looking at the significance level, it is seen that only half of the regression coefficients are statistically significant when applying the model to the test data. The R-squared value is low on both datasets. 
+
+Given the high muliticollinearity results and moderate correlation coefficients depicted in part 2 of this analysis, this poor performance is not unexpected. It is possible that combining the boroughs into a single dataset had a negative impact on performance. Combining the data may have also impacted the conclusions drawn in assessing correlation between features and price. For example, square footage may have a higher significance in predicting sale price for separate boroughs, but this was obscured in combining the data; a small apartment in Manhattan and a small apartment in Staten Island could have very different price ranges. Thus, a better result may have been achieved in checking collinearity and building models separately for each borough. It may also have been valuable to further consider building categories more closely.
+
+Moving forward I would be interested in supplementing the provided dataset further with information on population density or neighborhood demographic data (occupations, single vs family, etc.). Even with an improved model I suspect there are a number of factors impacting price outside of those in the provided data.
+
+Overall, this assignment was a good introduction to dealing with data and analysis in rstudio. With more practice and further iteration, I hope to improve the performance and quality of my models.
